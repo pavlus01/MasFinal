@@ -13,6 +13,8 @@
         <java.version>17</java.version>
         <vaadin.version>24.1.0</vaadin.version>
         <selenium.version>4.8.3</selenium.version>
+        <maven.compiler.source>19</maven.compiler.source>
+        <maven.compiler.target>19</maven.compiler.target>
     </properties>
 
     <parent>
@@ -72,6 +74,13 @@
             <groupId>org.springframework.data</groupId>
             <artifactId>spring-data-jpa</artifactId>
             <version>3.1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.data</groupId>
+            <artifactId>spring-data-bom</artifactId>
+            <version>2023.0.0</version>
+            <scope>import</scope>
+            <type>pom</type>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

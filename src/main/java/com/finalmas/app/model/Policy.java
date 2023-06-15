@@ -1,15 +1,15 @@
 package com.finalmas.app.model;
 
+import jakarta.persistence.*;
 import org.hibernate.annotations.GenericGenerator;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.Id;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 
-@Entity(name = "Policy")
+@Entity
+@Table(name = "Policy")
 public class Policy {
 
+    @Basic
     public String name;
     public String description;
     public LocalDate creation_date;
@@ -66,6 +66,26 @@ public class Policy {
         return "Name -> " + name + "\nDescription -> " + description +
                 "\nUsefullness date -> " + simpleDateFormat.format(usefullness_date) +
                 "\nSum insured -> " + sum_insured;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public void setCreation_date(LocalDate creation_date) {
+        this.creation_date = creation_date;
+    }
+
+    public void setUsefullness_date(LocalDate usefullness_date) {
+        this.usefullness_date = usefullness_date;
+    }
+
+    public void setSum_insured(double sum_insured) {
+        this.sum_insured = sum_insured;
     }
 
     public void setId(Long id) {
