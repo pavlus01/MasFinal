@@ -1,6 +1,6 @@
 package com.finalmas.app.model;
 
-//import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.GenericGenerator;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
@@ -17,7 +17,7 @@ public class Policy {
     public double sum_insured;
     @Id
     @GeneratedValue(generator="increment")
-//    @GenericGenerator(name="increment", strategy = "increment")
+    @GenericGenerator(name="increment", strategy = "increment")
     private Long id;
 
     public Policy(String name, String description, LocalDate creationDate, LocalDate usefullnessDate, double sumInsured) {
