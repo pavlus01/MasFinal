@@ -1,24 +1,24 @@
 package com.finalmas.app.model;
 
+import com.finalmas.app.repository.PolicyRepository;
 import jakarta.persistence.*;
 import org.hibernate.annotations.GenericGenerator;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 
-@Entity
-@Table(name = "Policy")
-public class Policy {
+@MappedSuperclass
+public abstract class Policy {
 
     @Basic
     public String name;
+    @Basic
     public String description;
+    @Basic
     public LocalDate creation_date;
+    @Basic
     public LocalDate usefullness_date;
+    @Basic
     public double sum_insured;
-    @Id
-    @GeneratedValue(generator="increment")
-    @GenericGenerator(name="increment", strategy = "increment")
-    private Long id;
 
     public Policy(String name, String description, LocalDate creationDate, LocalDate usefullnessDate, double sumInsured) {
         this.name = name;
@@ -29,11 +29,9 @@ public class Policy {
         sum_insured = sumInsured;
     }
 
-    public Policy() {
-
-    }
-
-//    public abstract double countInsuranceRisk();
+    public Policy() {}
+    @Transient
+    public abstract double countInsuranceRisk();
 
     public String getName() {
         return name;
@@ -55,7 +53,9 @@ public class Policy {
         return sum_insured;
     }
 
-    public boolean deletePolicy(){
+    @Transient
+    public boolean deletePolicy(PolicyRepository repository){
+        repository.delete(this);
         return true;
     }
 
@@ -88,12 +88,5 @@ public class Policy {
         this.sum_insured = sum_insured;
     }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Long getId() {
-        return id;
-    }
 }
 
