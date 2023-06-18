@@ -1,5 +1,7 @@
 package com.finalmas.app.views;
 
+import com.finalmas.app.model.Policy;
+import com.finalmas.app.repository.PolicyRepository;
 import com.finalmas.app.security.SecurityService;
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.applayout.DrawerToggle;
@@ -8,8 +10,6 @@ import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.html.*;
 import com.vaadin.flow.component.notification.Notification;
-import com.vaadin.flow.component.orderedlayout.FlexComponent;
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.tabs.Tab;
 import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.component.textfield.NumberField;
@@ -19,9 +19,12 @@ import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
-import com.vaadin.flow.theme.lumo.LumoUtility;
 
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 @PageTitle("Main")
 @Route(value = "")
@@ -29,6 +32,7 @@ import java.time.LocalDate;
 
 public class PolicyPackageView extends AppLayout {
 
+private final PolicyRepository policyRepository;
     private Button add;
     private Button next;
     private Tabs tabs;
@@ -48,13 +52,18 @@ public class PolicyPackageView extends AppLayout {
 
     private final SecurityService securityService;
 
-    public PolicyPackageView(SecurityService securityService) {
+    private Map<String, Policy> policyMap = new HashMap<>();
+    public static Map<String, Policy> chosenMap = new HashMap<>();
+
+    public PolicyPackageView(PolicyRepository policyRepository, SecurityService securityService) {
+        this.policyRepository = policyRepository;
 
         this.securityService = securityService;
+        List<Policy> policyList = policyRepository.findAll();
 
         this.setHeader();
-        this.setMenu();
-        this.setPage();
+        this.setMenu(policyList);
+        this.setPage(policyList);
 
     }
 
@@ -71,17 +80,16 @@ public class PolicyPackageView extends AppLayout {
         addToNavbar(toggle, title,img);
     }
 
-    private void setMenu(){
+    private void setMenu(List<Policy> policyList){
         opis = new H2("Available policy");
 
+        tabs = new Tabs();
 
-        /* Dodawanie polis*/
-        Tab details = new Tab("Life Policy - 3000");
-        Tab payment = new Tab("Life Policy - 5000");
-        Tab shipping = new Tab("Life Policy - 10000");
+        for (Policy pol : policyList) {
+            tabs.add(new Tab(pol.name));
+            policyMap.put(pol.name, pol);
+        }
 
-
-        tabs = new Tabs(details, payment, shipping);
 
         pageTitle  = new H1("Choose policy templates!");
         policyName = new TextField("Policy name");
@@ -95,37 +103,38 @@ public class PolicyPackageView extends AppLayout {
         addToDrawer(opis, tabs);
     }
 
-    private void setPage(){
+    private void setPage(List<Policy> policyList){
         FormLayout formLayout = new FormLayout();
 
         policyName.setEnabled(false);
+        policyName.setValue(policyList.get(0).name);
 
         textArea = new TextArea();
         textArea.setLabel("Description");
         textArea.setValueChangeMode(ValueChangeMode.EAGER);
-        textArea.setValue("Great job. This is excellent!");
+        textArea.setValue(policyList.get(0).description);
         textArea.setEnabled(false);
 
 
         createDate = new DatePicker("Create Date");
-        createDate.setValue(LocalDate.now());
+        createDate.setValue(policyList.get(0).creation_date);
         createDate.setEnabled(false);
 
         wefDate = new DatePicker("Warrancy Date");
-        wefDate.setValue(LocalDate.now().plusMonths(3));
+        wefDate.setValue(policyList.get(0).usefullness_date);
         wefDate.setEnabled(false);
         paragraph = new Paragraph("Policy details:");
 
         dollarField = new NumberField();
         dollarField.setLabel("Insurane sum");
-        dollarField.setValue(200.0);
+        dollarField.setValue(policyList.get(0).sum_insured);
         Div dollarPrefix = new Div();
         dollarPrefix.setText("$");
         dollarField.setPrefixComponent(dollarPrefix);
         dollarField.setEnabled(false);
 
         counterField = new NumberField();
-        counterField.setValue((double) 0);
+        counterField.setValue((double) chosenMap.size());
         Div numberPrefix = new Div();
         numberPrefix.setText("Chosen policy number: ");
         counterField.setPrefixComponent(numberPrefix);
@@ -133,6 +142,34 @@ public class PolicyPackageView extends AppLayout {
 
         add = new Button("Add policy");
         next = new Button("Buy policy package");
+
+        if (chosenMap.keySet().size() == 0)
+            next.setEnabled(false);
+
+        add.addClickListener(e -> {
+            Notification.show("Added " +  policyName.getValue());
+            next.setEnabled(true);
+            String nameValue = policyName.getValue();
+            while (true) {
+                if (!chosenMap.containsKey(policyName.getValue())) {
+                    if (policyName.getValue() != null) {
+                        Policy policy = new Policy(policyMap.get(nameValue).name, policyMap.get(nameValue).description, policyMap.get(nameValue).creation_date,
+                                policyMap.get(nameValue).usefullness_date, policyMap.get(nameValue).sum_insured);
+                        chosenMap.put(policyName.getValue(), policy);
+                    }
+                    break;
+                } else {
+                    if (Objects.equals(policyName.getValue().split("")[policyName.getValue().split("").length - 1], ")")){
+                        double tt = Double.parseDouble(policyName.getValue().split("")[policyName.getValue().split("").length - 2])+1;
+                        policyName.setValue(policyName.getValue().split("\\(")[0] +"("+ (int)tt + ")");
+                    } else {
+                        policyName.setValue(policyName.getValue()+"(2)");
+                    }
+                }
+            }
+            policyName.setValue(nameValue);
+            counterField.setValue(counterField.getValue()+1);
+        });
 
         next.addClickListener(e -> {
             next.getUI().ifPresent(ui ->
@@ -142,6 +179,10 @@ public class PolicyPackageView extends AppLayout {
         tabs.addSelectedChangeListener(e -> {
             Notification.show("Chosen " +  e.getSelectedTab().getLabel());
             policyName.setValue(e.getSelectedTab().getLabel());
+            textArea.setValue(policyMap.get(e.getSelectedTab().getLabel()).description);
+            createDate.setValue(policyMap.get(e.getSelectedTab().getLabel()).creation_date);
+            wefDate.setValue(policyMap.get(e.getSelectedTab().getLabel()).usefullness_date);
+            dollarField.setValue(policyMap.get(e.getSelectedTab().getLabel()).sum_insured);
         });
 
         formLayout.add(pageTitle, counterField, paragraph,  policyName, textArea, createDate, wefDate,

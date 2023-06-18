@@ -1,5 +1,7 @@
 package com.finalmas.app.views;
 
+import com.finalmas.app.model.Policy;
+import com.finalmas.app.repository.PolicyRepository;
 import com.finalmas.app.security.SecurityService;
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.applayout.DrawerToggle;
@@ -16,6 +18,8 @@ import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.component.textfield.NumberField;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.data.binder.Binder;
+import com.vaadin.flow.data.binder.Validator;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
@@ -23,6 +27,8 @@ import com.vaadin.flow.theme.lumo.LumoUtility;
 import jakarta.annotation.security.PermitAll;
 
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.Map;
 
 import static java.time.temporal.ChronoUnit.DAYS;
 
@@ -33,6 +39,7 @@ public class ChangePolicy extends AppLayout {
 
     private Button add;
     private Button next;
+    private Button delete;
     private Tabs tabs;
     private H1 title;
     private H1 pageTitle;
@@ -49,10 +56,16 @@ public class ChangePolicy extends AppLayout {
     private  FormLayout formLayout;
     private CheckboxGroup<String> checkboxGroup;
     private NumberField monthCostField;
+    private Map.Entry<String, Policy> firstPolicy;
+
+    public static double toPay = 0;
+
+    private final PolicyRepository policyRepository;
 
     private final SecurityService securityService;
 
-    public ChangePolicy(SecurityService securityService) {
+    public ChangePolicy(PolicyRepository policyRepository, SecurityService securityService) {
+        this.policyRepository = policyRepository;
 
         this.securityService = securityService;
 
@@ -88,14 +101,19 @@ public class ChangePolicy extends AppLayout {
     private void setMenu(){
         opis = new H2("Chosen policies");
 
+        tabs = new Tabs();
 
-        /* Dodawanie polis*/
-        Tab details = new Tab("Life Policy - 3000");
-        Tab payment = new Tab("Life Policy - 5000");
-        Tab shipping = new Tab("Life Policy - 10000");
+        boolean first = true;
+        for (Map.Entry<String, Policy> mapa : PolicyPackageView.chosenMap.entrySet()) {
+            if (first) {
+                first = false;
+                firstPolicy = mapa;
+            }
+            tabs.add(new Tab(mapa.getKey()));
+        }
 
 
-        tabs = new Tabs(details, payment, shipping);
+
         tabs.setOrientation(Tabs.Orientation.VERTICAL);
         setPrimarySection(Section.DRAWER);
 
@@ -111,65 +129,115 @@ public class ChangePolicy extends AppLayout {
         formLayout = new FormLayout();
 
         policyName.setEnabled(false);
+        policyName.setValue(firstPolicy.getKey());
 
         textArea = new TextArea();
         textArea.setLabel("Description");
         textArea.setValueChangeMode(ValueChangeMode.EAGER);
-        textArea.setValue("Great job. This is excellent!");
+        textArea.setValue(firstPolicy.getValue().description);
         textArea.setEnabled(false);
 
 
         createDate = new DatePicker("Create Date");
-        createDate.setValue(LocalDate.now());
+        createDate.setValue(firstPolicy.getValue().creation_date);
         createDate.setEnabled(false);
 
         wefDate = new DatePicker("Warrancy Date");
-        wefDate.setValue(LocalDate.now().plusMonths(3));
+        wefDate.setValue(firstPolicy.getValue().usefullness_date);
         wefDate.setEnabled(false);
+        wefDate.setMin(createDate.getValue());
+        wefDate.setMax(LocalDate.of(2300, 1, 1));
 
         wefDate.addValueChangeListener(e -> {
-            monthCostField .setValue( dollarField.getValue() * DAYS.between(createDate.getValue() , e.getValue()) * 25 / 7000);
+            monthCostField .setValue( dollarField.getValue() * (DAYS.between(createDate.getValue() , wefDate.getValue())+1 ) * 25 / 700000);
+        });
+
+        wefDate.addValidationStatusChangeListener(e -> {
+            if (e.getNewStatus()){
+                checkboxGroup.setEnabled(true);
+            } else {
+                checkboxGroup.setEnabled(false);
+            }
         });
 
         paragraph = new Paragraph("Policy details:");
 
         dollarField = new NumberField();
         dollarField.setLabel("Insurane sum");
-        dollarField.setValue(200.0);
+        dollarField.setValue(firstPolicy.getValue().sum_insured);
         Div dollarPrefix = new Div();
         dollarPrefix.setText("$");
         dollarField.setPrefixComponent(dollarPrefix);
         dollarField.setEnabled(false);
+        dollarField.setMin(0);
+        dollarField.setStep(5);
+        dollarField.setMax(1000000);
+
+        dollarField.addValidationStatusChangeListener(e -> {
+            checkboxGroup.setEnabled(e.getNewStatus());
+        });
+
+
 
         dollarField.addValueChangeListener(e -> {
-            monthCostField .setValue( e.getValue() * DAYS.between(createDate.getValue() , wefDate.getValue()) * 25 / 7000);
+            if (e.getValue() != null && e.getValue() > 0 && e.getValue() < 1000000)
+            monthCostField .setValue( e.getValue() * (DAYS.between(createDate.getValue() , wefDate.getValue())+1 ) * 25 / 700000);
         });
 
         monthCostField = new NumberField();
         monthCostField.setLabel("Monthly costs");
-        monthCostField.setValue(25.0);
         monthCostField.setPrefixComponent(dollarPrefix);
         monthCostField.setEnabled(false);
-        monthCostField .setValue( dollarField.getValue() * DAYS.between(createDate.getValue() , wefDate.getValue()) * 25 / 7000);
+        monthCostField .setValue( dollarField.getValue() * (DAYS.between(createDate.getValue() , wefDate.getValue())+1 )* 25 / 700000);
 
         checkboxGroup = new CheckboxGroup<>();
         checkboxGroup.setLabel("Options");
         checkboxGroup.setItems("Edit");
+
+
         checkboxGroup.addSelectionListener(e -> {
+
             wefDate.setEnabled(e.getAllSelectedItems().contains("Edit"));
             dollarField.setEnabled(e.getAllSelectedItems().contains("Edit"));
+            next.setEnabled(!e.getAllSelectedItems().contains("Edit"));
+            add.setEnabled(!e.getAllSelectedItems().contains("Edit"));
+
+
+            if ((PolicyPackageView.chosenMap.get(tabs.getSelectedTab().getLabel()).usefullness_date != wefDate.getValue() ||
+                            PolicyPackageView.chosenMap.get(tabs.getSelectedTab().getLabel()).sum_insured != dollarField.getValue()
+                    )) {
+                PolicyPackageView.chosenMap.get(tabs.getSelectedTab().getLabel()).setUsefullness_date(wefDate.getValue());
+                PolicyPackageView.chosenMap.get(tabs.getSelectedTab().getLabel()).setUsefullness_date(wefDate.getValue());
+                PolicyPackageView.chosenMap.get(tabs.getSelectedTab().getLabel()).setSum_insured(dollarField.getValue());
+            }
         });
 
 
         add = new Button("Cancel");
         next = new Button("Next");
+        delete = new Button("Delete");
+
+        delete.addClickListener(e -> {
+            if (PolicyPackageView.chosenMap.size() == 0)
+                next.setEnabled(false);
+            PolicyPackageView.chosenMap.remove(tabs.getSelectedTab().getLabel());
+            delete.getUI().ifPresent(ui ->
+                    ui.getPage().reload());
+
+        });
 
         next.addClickListener(e -> {
+
+            for (Map.Entry<String, Policy> tt : PolicyPackageView.chosenMap.entrySet()) {
+                toPay = tt.getValue().getSum_insured() * (DAYS.between(tt.getValue().getCreation_date() , tt.getValue().getUsefullness_date())+1 )* 25 / 700000 + toPay;
+            }
+
             next.getUI().ifPresent(ui ->
                     ui.navigate("overview"));
         });
 
         add.addClickListener(e -> {
+            PolicyPackageView.chosenMap = new HashMap<>();
             add.getUI().ifPresent(ui ->
                     ui.navigate(""));
         });
@@ -177,16 +245,22 @@ public class ChangePolicy extends AppLayout {
         tabs.addSelectedChangeListener(e -> {
             Notification.show("Chosen " +  e.getSelectedTab().getLabel());
             policyName.setValue(e.getSelectedTab().getLabel());
+            textArea.setValue(PolicyPackageView.chosenMap.get(e.getSelectedTab().getLabel()).description);
+            createDate.setValue(PolicyPackageView.chosenMap.get(e.getSelectedTab().getLabel()).creation_date);
+            wefDate.setValue(PolicyPackageView.chosenMap.get(e.getSelectedTab().getLabel()).usefullness_date);
+            dollarField.setValue(PolicyPackageView.chosenMap.get(e.getSelectedTab().getLabel()).sum_insured);
+            monthCostField .setValue( dollarField.getValue() * (DAYS.between(createDate.getValue() , wefDate.getValue())+1 ) * 25 / 7000);
         });
 
         formLayout.add(pageTitle, checkboxGroup, paragraph,  policyName, textArea, createDate, wefDate,
-                dollarField, monthCostField, add, next);
+                dollarField, monthCostField, add, delete, next);
         formLayout.setResponsiveSteps(
                 new FormLayout.ResponsiveStep("0", 1),
                 new FormLayout.ResponsiveStep("500px", 2));
         formLayout.setColspan(policyName, 2);
         formLayout.setColspan(paragraph, 2);
         formLayout.setColspan(textArea, 2);
+        formLayout.setColspan(next, 2);
 
         setContent(formLayout);
     }

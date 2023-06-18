@@ -22,6 +22,9 @@ import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import jakarta.annotation.security.PermitAll;
 
+import java.util.HashMap;
+import java.util.Objects;
+
 
 @PageTitle("Adjust chosen policies")
 @Route(value = "payment")
@@ -34,8 +37,6 @@ public class PayingView extends AppLayout {
     private Paragraph paragraph;
     private H1 pageTitle;
     private Select<String> select;
-    private String CARD_REGEX = "^(?:4[0-9]{12}(?:[0-9]{3})?|[25][1-7][0-9]{14}|6(?:011|5[0-9][0-9])[0-9]{12}|3[47][0-9]{13}|3(?:0[0-5]|[68][0-9])[0-9]{11}|(?:2131|1800|35d{3})d{11})$";
-
     private TextField cardNumber;
     private TextField cardholderName;
     private Select<Integer> month;
@@ -43,6 +44,7 @@ public class PayingView extends AppLayout {
     private PasswordField csc;
     private Button cancel;
     private Button submit;
+    private H3 subtitle;
     private ExpirationDateField expiration;
     public PayingView(SecurityService securityService){
         this.securityService = securityService;
@@ -77,12 +79,20 @@ public class PayingView extends AppLayout {
 
         FormLayout formLayout = new FormLayout();
         pageTitle  = new H1("Policy package owerview!");
-        paragraph = new Paragraph("Pay first rate for your package");
+        paragraph = new Paragraph("Pay first rate for your package - " + (int)ChangePolicy.toPay + "$");
 
         select = new Select<>();
         select.setLabel("Paying method");
         select.setItems("MasterCard", "Visa");
         select.setValue("MasterCard");
+
+        select.addValueChangeListener(e -> {
+                subtitle.setText("Credit Card - " + e.getValue());
+        });
+
+        select.addValidationStatusChangeListener(e -> {
+            submit.setEnabled(e.getNewStatus());
+        });
 
 
         formLayout.add(pageTitle, select, paragraph);
@@ -101,11 +111,17 @@ public class PayingView extends AppLayout {
         formLayout.add(createButtonLayout());
 
         cancel.addClickListener(e -> {
+            PolicyPackageView.chosenMap = new HashMap<>();
             Notification.show("Moving back");
             cancel.getUI().ifPresent(ui ->
                     ui.navigate(""));
         });
         submit.addClickListener(e -> {
+            if (select.getValue() == null || Objects.equals(cardNumber.getValue(), "") || cardholderName.getValue() == null ||
+                    month.getValue() == null || year.getValue() == null || csc.getValue() == null) {
+                Notification.show("Fulfill empty fields!!!");
+                return;
+            }
             Notification.show("Payment accepted");
             submit.getUI().ifPresent(ui ->
                     ui.navigate(""));
@@ -115,29 +131,53 @@ public class PayingView extends AppLayout {
 
 
     private Component createTitle() {
-        return new H3("Credit Card");
+        subtitle = new H3("Credit Card " + select.getValue());
+        return subtitle;
     }
 
     private Component createFormLayout() {
         cardNumber = new TextField("Credit card number");
         cardNumber.setPlaceholder("1234 5678 9123 4567");
-        cardNumber.setPattern(CARD_REGEX);
         cardNumber.setAllowedCharPattern("[\\d ]");
+        cardNumber.setMinLength(16);
+        cardNumber.setMaxLength(16);
         cardNumber.setRequired(true);
         cardNumber.setErrorMessage("Please enter a valid credit card number");
 
+        cardNumber.addValidationStatusChangeListener(e -> {
+            submit.setEnabled(e.getNewStatus());
+        });
+
         cardholderName = new TextField("Cardholder name");
+
+        cardholderName.addValidationStatusChangeListener(e -> {
+            submit.setEnabled(e.getNewStatus());
+        });
 
         month = new Select<>();
         month.setPlaceholder("Month");
         month.setItems(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12);
 
+        month.addValidationStatusChangeListener(e -> {
+            submit.setEnabled(e.getNewStatus());
+        });
+
         year = new Select<>();
         year.setPlaceholder("Year");
         year.setItems(20, 21, 22, 23, 24, 25);
 
+        year.addValidationStatusChangeListener(e -> {
+            submit.setEnabled(e.getNewStatus());
+        });
+
         expiration = new ExpirationDateField("Expiration date", month, year);
+
+
         csc = new PasswordField("CSC");
+        csc.addValidationStatusChangeListener(e -> {
+            submit.setEnabled(e.getNewStatus());
+        });
+
 
         FormLayout formLayout = new FormLayout();
         formLayout.add(cardNumber, cardholderName, expiration, csc);
@@ -167,7 +207,6 @@ public class PayingView extends AppLayout {
             year.setWidth("100px");
             add(layout);
         }
-
 
         @Override
         protected String generateModelValue() {

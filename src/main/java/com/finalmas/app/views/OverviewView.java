@@ -1,6 +1,7 @@
 package com.finalmas.app.views;
 
-import com.finalmas.app.model.Policy;
+import com.finalmas.app.model.*;
+import com.finalmas.app.repository.*;
 import com.finalmas.app.security.SecurityService;
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.button.Button;
@@ -9,6 +10,7 @@ import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Paragraph;
+import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.textfield.TextField;
@@ -18,14 +20,18 @@ import com.vaadin.flow.theme.lumo.LumoUtility;
 import jakarta.annotation.security.PermitAll;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Map;
 
 @PageTitle("Adjust chosen policies")
 @Route(value = "overview")
 @PermitAll
 public class OverviewView extends AppLayout {
 
+    private final InsurancePackageRepository insurancePackageRepository;
+    private  final BoughtPolicyRepository boughtPolicyRepository;
+    private final ClientRepository clientRepository;
+    private final PackagedPolicyRepository packagedPolicyRepository;
+    private final PolicyRepository policyRepository;
     private final SecurityService securityService;
     private H1 title;
     private Button logout;
@@ -36,9 +42,15 @@ public class OverviewView extends AppLayout {
     private Grid<Policy> crud;
     private Button back;
     private Button next;
+    private int packageNumber;
 
 
-    public OverviewView(SecurityService securityService){
+    public OverviewView(PackagedPolicyRepository packagedPolicyRepository, InsurancePackageRepository insurancePackageRepository, BoughtPolicyRepository boughtPolicyRepository, ClientRepository clientRepository, PackagedPolicyRepository packagedPolicyRepository1, PolicyRepository policyRepository, SecurityService securityService){
+        this.insurancePackageRepository = insurancePackageRepository;
+        this.boughtPolicyRepository = boughtPolicyRepository;
+        this.clientRepository = clientRepository;
+        this.packagedPolicyRepository = packagedPolicyRepository1;
+        this.policyRepository = policyRepository;
         this.securityService = securityService;
 
         this.setHeader();
@@ -74,16 +86,36 @@ public class OverviewView extends AppLayout {
         pageTitle  = new H1("Policy package owerview!");
         paragraph = new Paragraph("Policies are shown in the table:");
         packageName = new TextField("Package name");
+        packageName.setMinLength(0);
+        packageName.setMaxLength(200);
+        packageName.setRequired(true);
+        packageNumber = ((int)(10000*java.lang.Math.random()));
+        packageName.setValue("My Package #" + packageNumber);
+        packageName.addValueChangeListener(e -> {
+            if (insurancePackageRepository.existsByName(e.getValue())) {
+                Notification.show("Given name is already taken. Please give different one!");
+                packageName.setValue(e.getOldValue());
+            }
+        });
 
-        crud = new  Grid<>(Policy.class);
+
+        packageName.addValidationStatusChangeListener(e -> {
+            if (e.getNewStatus()){
+                next.setEnabled(true);
+            } else {
+                next.setEnabled(false);
+            }
+        });
+
+        crud = new  Grid<>(Policy.class, false);
+        crud.addColumn(Policy::getName).setHeader("Name");
+        crud.addColumn(Policy::getDescription).setHeader("Description");
+        crud.addColumn(Policy::getCreation_date).setHeader("Start Date");
+        crud.addColumn(Policy::getUsefullness_date).setHeader("Usefulness Date");
+        crud.addColumn(Policy::getSum_insured).setHeader("Insurance Sum");
 
 
-        List<Policy> input = new ArrayList<>();
-//        input.add(new Policy("Life insurance - 500", "Life insurance for 33 days", LocalDate.now(), LocalDate.now().plusDays(33), 500));
-//        input.add(new Policy("Life insurance - 1000", "Life insurance for 33 days", LocalDate.now(), LocalDate.now().plusDays(33), 1000));
-//        input.add(new Policy("Life insurance - 1500", "Life insurance for 33 days", LocalDate.now(), LocalDate.now().plusDays(33), 1500));
-
-        crud.setItems(input);
+        crud.setItems(PolicyPackageView.chosenMap.values());
         crud.setMaxHeight("270px");
 
         back= new Button("Back");
@@ -95,6 +127,33 @@ public class OverviewView extends AppLayout {
         });
 
         next.addClickListener(e -> {
+            for (Map.Entry<String, Policy> tt : PolicyPackageView.chosenMap.entrySet()) {
+                tt.getValue().setName(tt.getKey() + " #" + packageNumber);
+                policyRepository.save(tt.getValue());
+            }
+
+            InsurancePackage insurancePackage = new InsurancePackage(packageName.getValue());
+            insurancePackageRepository.save(insurancePackage);
+
+            PackagedPolicy packagedPolicy = new PackagedPolicy(LocalDate.now());
+            packagedPolicy.addPackage(insurancePackage);
+
+            for (Map.Entry<String, Policy> tt : PolicyPackageView.chosenMap.entrySet()) {
+                packagedPolicy.addPolicy(tt.getValue());
+            }
+
+            packagedPolicyRepository.save(packagedPolicy);
+
+            Client client = clientRepository.getClientByClientId(1);
+
+            BoughtPolicy boughtPolicy = new BoughtPolicy(LocalDate.now(), BoughtPolicy.Status.CREATED, client, insurancePackage);
+
+            boughtPolicyRepository.save(boughtPolicy);
+
+            Notification.show("Data saved");
+
+
+
             next.getUI().ifPresent(ui ->
                     ui.navigate("payment"));
         });

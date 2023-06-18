@@ -5,9 +5,11 @@ import jakarta.persistence.*;
 import org.hibernate.annotations.GenericGenerator;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
+import java.util.List;
 
-@MappedSuperclass
-public abstract class Policy {
+@Entity(name = "Policy")
+@Inheritance(strategy = InheritanceType.JOINED)
+public class Policy {
 
     @Basic
     public String name;
@@ -20,8 +22,21 @@ public abstract class Policy {
     @Basic
     public double sum_insured;
 
+    @jakarta.persistence.Id
+    @GeneratedValue(generator="increment")
+    @GenericGenerator(name="increment", strategy = "increment")
+    public Long id;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
     public Policy(String name, String description, LocalDate creationDate, LocalDate usefullnessDate, double sumInsured) {
-        this.name = name;
+        this.setName(name);
         this.description = description;
         if(creationDate == null || usefullnessDate == null) try{throw new Exception();} catch(Exception e){e.printStackTrace();}
         creation_date = creationDate;
@@ -30,8 +45,17 @@ public abstract class Policy {
     }
 
     public Policy() {}
-    @Transient
-    public abstract double countInsuranceRisk();
+
+    @ManyToOne
+    private PackagedPolicy packagedPolicy;
+
+    public PackagedPolicy getPackagedPolicy() {
+        return packagedPolicy;
+    }
+
+    public void setPackagedPolicy(PackagedPolicy packagedPolicy) {
+        this.packagedPolicy = packagedPolicy;
+    }
 
     public String getName() {
         return name;
@@ -60,16 +84,25 @@ public abstract class Policy {
     }
 
     @Override
+    @Transient
     public String toString(){
         String pattern = "dd-MM-yyyy";
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
         return "Name -> " + name + "\nDescription -> " + description +
-                "\nUsefullness date -> " + simpleDateFormat.format(usefullness_date) +
+                "\nUsefullness date -> " + usefullness_date.toString() +
                 "\nSum insured -> " + sum_insured;
     }
 
     public void setName(String name) {
-        this.name = name;
+        if (name.length() <= 100)
+            this.name = name;
+        else {
+            try {
+                throw new Exception("Given name is too long!");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     public void setDescription(String description) {

@@ -10,10 +10,6 @@ import java.time.LocalDate;
 @Entity(name = "LifeInsurance")
 public class LifeInsurance extends Policy{
 
-    @jakarta.persistence.Id
-    @GeneratedValue(generator="increment")
-    @GenericGenerator(name="increment", strategy = "increment")
-    private Long Id;
 
     public LifeInsurance(String name, String description, LocalDate creationDate, LocalDate usefullnessDate, double sumInsured) {
         super(name, description, creationDate, usefullnessDate, sumInsured);
@@ -22,18 +18,8 @@ public class LifeInsurance extends Policy{
     public LifeInsurance() {
     }
 
-    public Long getId() {
-        return Id;
-    }
-
-    public void setId(Long id) {
-        Id = id;
-    }
-
     @Transient
-    @Override
     public double countInsuranceRisk() {
-        //DOIMPLEMENTOWAĆ
-        return 0;
+        return getSum_insured()*2500;
     }
 }
